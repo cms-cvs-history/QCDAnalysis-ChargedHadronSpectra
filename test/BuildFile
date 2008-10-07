@@ -24,5 +24,6 @@
  <use name=SimTracker/TrackAssociation>
 # Will be removed:
  <use name=RecoVertex/KalmanVertexFit>
+ <use name=DataFormats/L1GlobalCaloTrigger>
  <flags EDM_PLUGIN=1>
 </library>

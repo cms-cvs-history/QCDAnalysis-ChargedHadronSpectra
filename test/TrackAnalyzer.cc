@@ -47,6 +47,27 @@
 
 #include "QCDAnalysis/ChargedHadronSpectra/interface/Histograms.h"
 
+#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#include "Geometry/TrackerTopology/interface/RectangularPixelTopology.h"
+
+#include "Geometry/CommonTopologies/interface/StripTopology.h"
+
+#include "Geometry/CommonDetUnit/interface/GeomDetType.h"
+#include "Geometry/CommonDetUnit/interface/GeomDetUnit.h"
+
+#include "DataFormats/GeometryVector/interface/GlobalVector.h"
+
+#include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHit.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2D.h"
+
+#include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2D.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiStripMatchedRecHit2D.h"
+#include "DataFormats/TrackerRecHit2D/interface/ProjectedSiStripRecHit2D.h"
+
+// HF
+#include "DataFormats/L1GlobalCaloTrigger/interface/L1GctJetCounts.h"
+
 #include "TROOT.h"
 #include "TFile.h"
 #include "TNtuple.h"
@@ -77,7 +98,7 @@ class TrackAnalyzer : public edm::EDAnalyzer
 
    float refitWithVertex(const reco::Track & recTrack);
 
-   void processSimTracks();
+   int processSimTracks();
 
    float getEnergyLoss(const reco::Track * track);
    float getEnergyLoss(const edm::RefToBase<reco::Track> & track);
@@ -90,11 +111,6 @@ class TrackAnalyzer : public edm::EDAnalyzer
 
    float getInvariantMass(const VZero & vZero, float m1, float m2);
 
-/*
-   float getInvariantMass(const edm::RefToBase<reco::Track> & r1,
-                          const edm::RefToBase<reco::Track> & r2,
-                          float m1, float m2);
-*/
    float getInvariantMass(const reco::Track * r1,
                           const reco::Track * r2,
                           float m1, float m2);
@@ -103,14 +119,15 @@ class TrackAnalyzer : public edm::EDAnalyzer
    void processResonances(edm::View<reco::Track> & c1,
                           edm::View<reco::Track> & c2, bool sameEvent);
 
-   void processRecTracks(edm::Handle<reco::TrackDeDxEstimateCollection> elossCollection);
+   int processRecTracks(
+     edm::Handle<reco::TrackDeDxEstimateCollection> elossCollection);
 
    const TrackerGeometry * theTracker;
    const TrackAssociatorByHits * theAssociatorByHits;
    const TransientTrackBuilder * theTTBuilder;
    const reco::BeamSpot* theBeamSpot;
 
-   TFile * resultFile; 
+//   TFile * resultFile; 
    TNtuple * trackSim;
    TNtuple * trackRec;
    TNtuple * vzeroRec;
@@ -129,7 +146,7 @@ class TrackAnalyzer : public edm::EDAnalyzer
    Histograms * histograms;
 
    string trackProducer;
-   string resultFileLabel;
+//   string resultFileLabel;
    bool hasSimInfo;
    bool allRecTracksArePrimary;
 
@@ -144,7 +161,7 @@ class TrackAnalyzer : public edm::EDAnalyzer
 TrackAnalyzer::TrackAnalyzer(const edm::ParameterSet& pset)
 {
   trackProducer   = pset.getParameter<string>("trackProducer");
-  resultFileLabel = pset.getParameter<string>("resultFile");
+//  resultFileLabel = pset.getParameter<string>("resultFile");
 
   hasSimInfo      = pset.getParameter<bool>("hasSimInfo");
 
@@ -212,16 +229,22 @@ int TrackAnalyzer::getDetLayerId(const PSimHit& simHit)
 
 /*****************************************************************************/
 bool TrackAnalyzer::isAccepted
-  (const TrackingParticle& simTrack)
+  (const TrackingParticle& simTrack_)
 {
+  TrackingParticle * simTrack = const_cast<TrackingParticle *>(&simTrack_);
+
   // How many pixel hits?
   const int nLayers = 5;
   vector<bool> filled(nLayers,false);
 
-  for(std::vector<PSimHit>::const_iterator simHit = simTrack.pSimHit_begin();
-                                           simHit!= simTrack.pSimHit_end();
-                                           simHit++)
+  for(std::vector<PSimHit>::const_iterator
+        simHit = simTrack->trackerPSimHit_begin();
+        simHit!= simTrack->trackerPSimHit_end(); simHit++)
   {
+    if(simHit == simTrack->trackerPSimHit_begin())
+    if(simHit->particleType() != simTrack->pdgId())
+      return false;
+
     unsigned int id = simHit->detUnitId();
 
     if(theTracker->idToDetUnit(id)->subDetector() ==
@@ -266,11 +289,15 @@ bool TrackAnalyzer::isPrimary(const edm::RefToBase<reco::Track> & recTrack)
     return true;
   }
 
-  float d0 = fabs(recTrack->dxy(theBeamSpot->position()));
-  
-  // FIXME, 0.2 cm or 5 sigma?
-  if(d0 > min(0.2, 5 * recTrack->dxyError())) return false;
+  // Transverse impact paramter (0.2 cm or 5*sigma)
+  double dt = fabs(recTrack->dxy(theBeamSpot->position()));
+  double st = sqrt(recTrack->dxyError() * recTrack->dxyError() +
+                  theBeamSpot->BeamWidth() * theBeamSpot->BeamWidth());
 
+  if(dt > min(0.2, 5 * st)) return false;
+
+  // Longitudinal impact paramter (0.2 cm or 5*sigma)
+  // but only if there are vertices
   if(vertices->size() > 0)
   {
     // Look for the closest vertex in z
@@ -283,8 +310,8 @@ bool TrackAnalyzer::isPrimary(const edm::RefToBase<reco::Track> & recTrack)
        dzmin = dz ;
     }
 
-    // FIXME
     if(dzmin > 0.3) return false;
+// !!!   if(dzmin > min(0.2, 5 * recTrack->dzError())) return false;
   }
 
   return true;
@@ -411,7 +438,7 @@ float TrackAnalyzer::refitWithVertex
                                closestVertex->position().y(),
                                closestVertex->position().z());
 
-    float beamSize = 15e-4; // 15 um
+    float beamSize = theBeamSpot->BeamWidth();
     GlobalError vertexError(beamSize*beamSize, 0,
                             beamSize*beamSize, 0,
                             0,closestVertex->covariance(2,2));
@@ -428,8 +455,10 @@ float TrackAnalyzer::refitWithVertex
 }
 
 /*****************************************************************************/
-void TrackAnalyzer::processSimTracks()
+int TrackAnalyzer::processSimTracks()
 {
+  int ntrk = 0;
+
   for(TrackingParticleCollection::size_type i=0;
                i < simCollection.product()->size(); ++i)
   {
@@ -437,6 +466,7 @@ void TrackAnalyzer::processSimTracks()
 
     SimTrack_t s;
 
+    //
     s.ntrkr = ntrk; // ntrk
 
     // sim
@@ -449,7 +479,13 @@ void TrackAnalyzer::processSimTracks()
     bool acc;
     
     if(simTrack->charge() != 0)
+    {
       acc = isAccepted(*simTrack);
+      
+      // primary charged particles with |eta|<2.4
+      if(s.prim && fabs(s.etas) < 2.4)
+        ntrk++; 
+    }
     else
     {
       acc = false;
@@ -538,6 +574,8 @@ void TrackAnalyzer::processSimTracks()
     // fill
     histograms->fillSimHistograms(s);
   }
+
+  return ntrk;
 }
 
 /*****************************************************************************/
@@ -568,7 +606,6 @@ float TrackAnalyzer::getEnergyLoss(const reco::Track * track)
     edm::RefToBase<reco::Track> recTrack(recCollection, i);
     if(track == &(*recTrack)) j = i;
   }
-
   return eloss[j].second.value();
 }
 
@@ -607,8 +644,7 @@ float TrackAnalyzer::getInvariantMass
 /*****************************************************************************/
 double TrackAnalyzer::getSigmaOfLogdEdx(double logde)
 {
-//  return 0.1034*logde + 0.0738;
-  return 0.1*logde + 0.1;
+  return 0.3;
 }
 
 /****************************************************************************/
@@ -623,18 +659,20 @@ double TrackAnalyzer::truncate(double m)
 /****************************************************************************/
 double TrackAnalyzer::getLogdEdx(double bg)
 {
-  const double aa = 0.111;
-  const double bb = 23.89;
+  const double a =  3.25 ;
+  const double b =  0.288;
+  const double c = -0.852;
 
   double beta = bg/sqrt(bg*bg + 1);
+  double dedx = log( a/(beta*beta) + b * log(bg) + c );
 
-  double dedx = log( aa/(beta*beta) * (2*log(bg) + bb - beta*beta) );
-
-  return truncate(dedx);
+   return dedx;
+//  return truncate(dedx);
 }
 
 /****************************************************************************/
-bool TrackAnalyzer::isCompatibleWithdEdx(double m, const edm::RefToBase<reco::Track> & track)
+bool TrackAnalyzer::isCompatibleWithdEdx
+  (double m, const edm::RefToBase<reco::Track> & track)
 {  
   ch = (track->charge() > 0 ? 0 : 1);
    
@@ -643,12 +681,13 @@ bool TrackAnalyzer::isCompatibleWithdEdx(double m, const edm::RefToBase<reco::Tr
 
   double bg = track->p() / m;
 
-  double theo;
-  if(m > 0.1) theo = getLogdEdx(bg);
-         else theo = 1.106; // elec
+  double theo = getLogdEdx(bg);
+
+  // !!!!!!
+  int nhitr = track->numberOfValidHits();
 
   double meas = log(getEnergyLoss(track));
-  double sigm = getSigmaOfLogdEdx(theo) / sqrt(track->numberOfValidHits());
+  double sigm = getSigmaOfLogdEdx(theo) * pow(nhitr,-0.65);
    
   if(theo - 5 * sigm < meas && meas < theo + 5 * sigm)
     return true;
@@ -666,12 +705,13 @@ bool TrackAnalyzer::isCompatibleWithdEdx(double m, const reco::Track * track)
 
   double bg = track->p() / m;
   
-  double theo;
-  if(m > 0.1) theo = getLogdEdx(bg);
-         else theo = 1.106; // elec
+  double theo = getLogdEdx(bg);
+
+  // !!!!!!
+  int nhitr = track->numberOfValidHits();
 
   double meas = log(getEnergyLoss(track));
-  double sigm = getSigmaOfLogdEdx(theo) / sqrt(track->numberOfValidHits());
+  double sigm = getSigmaOfLogdEdx(theo) / pow(nhitr,-0.65);
 
   if(theo - 5 * sigm < meas && meas < theo + 5 * sigm)
     return true;
@@ -697,7 +737,11 @@ void TrackAnalyzer::processVZeros()
 
     v.etar = momentum.eta();               // eta
     v.ptr  = momentum.perp();              // pt
+
     v.rhor = vZero->crossingPoint().rho(); // rho
+
+//    result.push_back(vZero->armenterosPt());        // qt
+//    result.push_back(vZero->armenterosAlpha());     // alpha
 
     if(isCompatibleWithdEdx(mel, &(*(vZero->positiveDaughter()))) &&
        isCompatibleWithdEdx(mel, &(*(vZero->negativeDaughter()))))
@@ -735,10 +779,10 @@ void TrackAnalyzer::processResonances
    edm::View<reco::Track> & c2,
    bool sameEvent)
 {
-//  const float mel = 0.511e-3;
+  const float mel = 0.511e-3;
   const float mpi = 0.13957018;
   const float mka = 0.493677;
-//  const float mpr = 0.93827203;
+  const float mpr = 0.93827203;
 
   // rho -> pi+ pi- 
   // kst -> K+  pi-
@@ -804,12 +848,26 @@ void TrackAnalyzer::processResonances
         }
     }
   }
+
+/*
+
+
+  for(int part = rho; part <= phi; part++)
+  {
+    int part_ = part - rho;
+
+    int d1 = resonance[part_].first;
+    int d2 = resonance[part_].second;
+  }
+*/
 }
 
 /*****************************************************************************/
-void TrackAnalyzer::processRecTracks
+int TrackAnalyzer::processRecTracks
   (edm::Handle<reco::TrackDeDxEstimateCollection> elossCollection)
 {
+  int ntrk = 0;
+
   for(edm::View<reco::Track>::size_type i=0;
           i < recCollection.product()->size(); ++i)
   {
@@ -827,13 +885,23 @@ void TrackAnalyzer::processRecTracks
 
     r.logpr = log(recTrack->p());
 
-    r.nhitr = recTrack->numberOfValidHits();           // nhitr
+//    r.nhitr = recTrack->numberOfValidHits();           // nhitr
+
+//    pair<int,int> nhitr = (*elossCollection.product())[i].second.error();
+//     getNumberOfEnergyLossHits(&((trajCollection.product())->at(i)));
+    r.nhitr       = int((*elossCollection.product())[i].second.error() + 0.5);
+//    r.nhitr_strip = nhitr.second;
 
     r.prim  = isPrimary(recTrack);
 
     r.zr    = recTrack->dz(theBeamSpot->position());  // dzr
 
-    r.logde = log((*elossCollection.product())[i].second.value());    // log(dedx)
+    r.logde = log((*elossCollection.product())[i].second.value());       // log(dedx)
+//    r.logde_strip =
+//              log((*elossCollection_strip.product())[i].second.value()); // log(dedx)
+
+    if(r.prim && fabs(r.etas) < 2.4)
+      ntrk++;
 
     // sim 
     if(hasSimInfo)
@@ -870,6 +938,8 @@ void TrackAnalyzer::processRecTracks
     // fill
     histograms->fillRecHistograms(r);
   }
+
+  return ntrk;
 }
 
 /*****************************************************************************/
@@ -886,18 +956,32 @@ void TrackAnalyzer::analyze
   proc = hepEv->GetEvent()->signal_process_id();
   LogTrace("MinBiasTracking") << " [TrackAnalyzer] process = " << proc;
 
-  ev.getByType(simCollection);
+  ev.getByLabel("mergedtruth", simCollection);
   }
+  else proc = 0;
 
+  // Get HF info
+/*
+  edm::Handle<vector<L1GctJetCounts> >  jetCountDigi; 
+  ev.getByLabel("hltGctDigis",          jetCountDigi);
+
+  LogTrace("MinBiasTracking") << " [TrackAnalyzer] trigger :" 
+    << " HF+("
+    << jetCountDigi.product()->at(0).hfTowerCountPositiveEta() << ")"
+    << " HF-("
+    << jetCountDigi.product()->at(0).hfTowerCountNegativeEta() << ")";
+*/
+
+  // Get reconstructed tracks
   ev.getByLabel(trackProducer, recCollection);
-  LogTrace("MinBiasTracking") << " [TrackAnalyzer] recTracks = "
+  LogTrace("MinBiasTracking") << " [TrackAnalyzer] recTracks    = "
     << recCollection.product()->size();
 
   edm::View<reco::Track> rTrackCollection = *(recCollection.product());
 
   // Get reconstructed dE/dx
-  edm::Handle<reco::TrackDeDxEstimateCollection> elossCollection;
-  ev.getByType(elossCollection);
+  edm::Handle<reco::TrackDeDxEstimateCollection>   elossCollection;
+  ev.getByLabel("energyLoss", "energyLossStrHits", elossCollection);
   energyLoss = elossCollection.product();
 
   // Get reconstructed V0s
@@ -910,6 +994,11 @@ void TrackAnalyzer::analyze
   ev.getByLabel("offlineBeamSpot", beamSpotHandle);
   theBeamSpot = beamSpotHandle.product();
 
+  LogTrace("MinBiasTracking")
+    << " [TrackAnalyzer] beamSpot at " << theBeamSpot->position() 
+    << " sigmaZ = "    << theBeamSpot->sigmaZ()
+    << " BeamWidth = " << theBeamSpot->BeamWidth() << endl;
+
   // Get vertices
   edm::Handle<reco::VertexCollection> vertexCollection;
   ev.getByLabel("pixelVertices",vertexCollection);
@@ -918,28 +1007,45 @@ void TrackAnalyzer::analyze
   // Proocess eventInfo
   ntrk = recCollection.product()->size();
   nvtx = vertexCollection.product()->size();
-  histograms->fillEventInfo(proc,ntrk);
 
   // Associators
   if(hasSimInfo)
   {
+    LogTrace("MinBiasTracking") << " [TrackAnalyzer] associateSimToReco";
     simToReco =
     theAssociatorByHits->associateSimToReco(recCollection, simCollection,&ev);
+
+    LogTrace("MinBiasTracking") << " [TrackAnalyzer] associateSimToReco";
     recoToSim =
     theAssociatorByHits->associateRecoToSim(recCollection, simCollection,&ev);
   }
 
   // Analyze
+  int prim_s_tracks = 0;
   if(hasSimInfo)
-    processSimTracks();
+  {
+    LogTrace("MinBiasTracking") << " [TrackAnalyzer] processSimTracks";
+    prim_s_tracks = processSimTracks();
+  }
 
-  processRecTracks(elossCollection);
+  LogTrace("MinBiasTracking") << " [TrackAnalyzer] processRecTracks";
+  int prim_r_tracks = processRecTracks(elossCollection);
+
+  histograms->fillEventInfo(proc, prim_s_tracks,
+                                  prim_r_tracks);
+
+  LogTrace("MinBiasTracking") << " [TrackAnalyzer] processVZeros";
   processVZeros();
 
+/*
+  LogTrace("MinBiasTracking") << " [TrackAnalyzer] processResonances";
   processResonances(rTrackCollection,rTrackCollection, true);
+
+  LogTrace("MinBiasTracking") << " [TrackAnalyzer] processProcessResonances";
   processResonances(rTrackCollection,oTrackCollection, false);
 
   oTrackCollection = rTrackCollection;
+*/
 }
 
 DEFINE_FWK_MODULE(TrackAnalyzer);
