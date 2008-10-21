@@ -67,7 +67,7 @@
 #include "DataFormats/TrackerRecHit2D/interface/ProjectedSiStripRecHit2D.h"
 
 // HF
-#include "DataFormats/L1GlobalCaloTrigger/interface/L1GctJetCounts.h"
+//#include "DataFormats/L1GlobalCaloTrigger/interface/L1GctJetCounts.h"
 
 #include "TROOT.h"
 #include "TFile.h"
@@ -822,6 +822,7 @@ void TrackAnalyzer::analyze
   else proc = 0;
 
   // Get HF info
+/*
   edm::Handle<vector<L1GctJetCounts> >  jetCountDigi; 
   ev.getByLabel("hltGctDigis",          jetCountDigi);
 
@@ -832,6 +833,7 @@ void TrackAnalyzer::analyze
     << jetCountDigi.product()->at(0).hfTowerCountPositiveEta() << ")"
     << " HF-("
     << jetCountDigi.product()->at(0).hfTowerCountNegativeEta() << ")";
+*/
 
   // Get reconstructed tracks
   ev.getByLabel(trackProducer, recCollection);
