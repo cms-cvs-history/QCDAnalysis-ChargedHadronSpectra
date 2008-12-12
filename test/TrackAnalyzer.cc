@@ -231,11 +231,14 @@ bool TrackAnalyzer::isAccepted
   const int nLayers = 5;
   vector<bool> filled(nLayers,false);
 
+  std::vector<PSimHit> trackerPSimHit( simTrack->trackPSimHit(DetId::Tracker));
+  
   for(std::vector<PSimHit>::const_iterator
-        simHit = simTrack->trackerPSimHit_begin();
-        simHit!= simTrack->trackerPSimHit_end(); simHit++)
+        simHit = trackerPSimHit.begin();
+        simHit!= trackerPSimHit.end(); simHit++)
   {
-    if(simHit == simTrack->trackerPSimHit_begin())
+
+    if(simHit == trackerPSimHit.begin())
     if(simHit->particleType() != simTrack->pdgId())
       return false;
 
