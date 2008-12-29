@@ -16,7 +16,7 @@
  <flags EDM_PLUGIN=1>
 </library>
 
-<library file="TrackAnalyzer.cc" name="TrackAnalyzer">
+<library file="QCDTrackAnalyzer.cc" name="QCDTrackAnalyzer">
  <use name=SimDataFormats/TrackingAnalysis>
  <use name=SimDataFormats/Track>
  <use name=SimDataFormats/Vertex>

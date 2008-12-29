@@ -78,11 +78,11 @@ using namespace std;
 using namespace reco;
 
 /*****************************************************************************/
-class TrackAnalyzer : public edm::EDAnalyzer
+class QCDTrackAnalyzer : public edm::EDAnalyzer
 {
  public:
-   explicit TrackAnalyzer(const edm::ParameterSet& pset);
-   ~TrackAnalyzer();
+   explicit QCDTrackAnalyzer(const edm::ParameterSet& pset);
+   ~QCDTrackAnalyzer();
    virtual void beginJob(const edm::EventSetup& es);
    virtual void analyze(const edm::Event& ev, const edm::EventSetup& es);
    virtual void endJob();
@@ -155,7 +155,7 @@ class TrackAnalyzer : public edm::EDAnalyzer
 };
 
 /*****************************************************************************/
-TrackAnalyzer::TrackAnalyzer(const edm::ParameterSet& pset)
+QCDTrackAnalyzer::QCDTrackAnalyzer(const edm::ParameterSet& pset)
 {
   trackProducer   = pset.getParameter<string>("trackProducer");
   hasSimInfo      = pset.getParameter<bool>("hasSimInfo");
@@ -165,12 +165,12 @@ TrackAnalyzer::TrackAnalyzer(const edm::ParameterSet& pset)
 }
 
 /*****************************************************************************/
-TrackAnalyzer::~TrackAnalyzer()
+QCDTrackAnalyzer::~QCDTrackAnalyzer()
 {
 }
 
 /*****************************************************************************/
-void TrackAnalyzer::beginJob(const edm::EventSetup& es)
+void QCDTrackAnalyzer::beginJob(const edm::EventSetup& es)
 {
   // Get tracker geometry
   edm::ESHandle<TrackerGeometry> tracker;
@@ -194,13 +194,13 @@ void TrackAnalyzer::beginJob(const edm::EventSetup& es)
 }
 
 /*****************************************************************************/
-void TrackAnalyzer::endJob()
+void QCDTrackAnalyzer::endJob()
 {
   histograms->writeHistograms();
 }
 
 /*****************************************************************************/
-int TrackAnalyzer::getDetLayerId(const PSimHit& simHit)
+int QCDTrackAnalyzer::getDetLayerId(const PSimHit& simHit)
 {
   int layerId;
 
@@ -222,7 +222,7 @@ int TrackAnalyzer::getDetLayerId(const PSimHit& simHit)
 }
 
 /*****************************************************************************/
-bool TrackAnalyzer::isAccepted
+bool QCDTrackAnalyzer::isAccepted
   (const TrackingParticle& simTrack_)
 {
   TrackingParticle * simTrack = const_cast<TrackingParticle *>(&simTrack_);
@@ -262,7 +262,7 @@ bool TrackAnalyzer::isAccepted
 }
 
 /*****************************************************************************/
-bool TrackAnalyzer::isPrimary(const edm::RefToBase<reco::Track> & recTrack)
+bool QCDTrackAnalyzer::isPrimary(const edm::RefToBase<reco::Track> & recTrack)
 {
   if(allRecTracksArePrimary)
   {
@@ -315,7 +315,7 @@ bool TrackAnalyzer::isPrimary(const edm::RefToBase<reco::Track> & recTrack)
 }
 
 /*****************************************************************************/
-edm::RefToBase<reco::Track> TrackAnalyzer::getAssociatedRecTrack
+edm::RefToBase<reco::Track> QCDTrackAnalyzer::getAssociatedRecTrack
   (const TrackingParticleRef & simTrack, int & nRec, bool hasToBePrimary)
 {
   edm::RefToBase<reco::Track> associatedRecTrack;
@@ -380,7 +380,7 @@ edm::RefToBase<reco::Track> TrackAnalyzer::getAssociatedRecTrack
 }
 
 /*****************************************************************************/
-TrackingParticleRef TrackAnalyzer::getAssociatedSimTrack
+TrackingParticleRef QCDTrackAnalyzer::getAssociatedSimTrack
   (const edm::RefToBase<reco::Track> & recTrack, int & nSim)
 {
   TrackingParticleRef associatedSimTrack;
@@ -410,7 +410,7 @@ TrackingParticleRef TrackAnalyzer::getAssociatedSimTrack
 
 
 /*****************************************************************************/
-float TrackAnalyzer::refitWithVertex
+float QCDTrackAnalyzer::refitWithVertex
   (const reco::Track & recTrack)
 { 
   TransientTrack theTransientTrack = theTTBuilder->build(recTrack);
@@ -452,7 +452,7 @@ float TrackAnalyzer::refitWithVertex
 }
 
 /*****************************************************************************/
-int TrackAnalyzer::processSimTracks()
+int QCDTrackAnalyzer::processSimTracks()
 {
   int ntrk = 0;
 
@@ -586,14 +586,14 @@ int TrackAnalyzer::processSimTracks()
 }
 
 /*****************************************************************************/
-float TrackAnalyzer::getEnergyLoss(const reco::TrackRef & track)
+float QCDTrackAnalyzer::getEnergyLoss(const reco::TrackRef & track)
 {
   const DeDxDataValueMap & eloss = *energyLoss;
   return eloss[track].dEdx();
 }
 
 /*****************************************************************************/
-float TrackAnalyzer::getInvariantMass(const VZero & vZero, float m1, float m2)
+float QCDTrackAnalyzer::getInvariantMass(const VZero & vZero, float m1, float m2)
 {
   GlobalVector p1 = vZero.momenta().first;
   GlobalVector p2 = vZero.momenta().second;
@@ -605,7 +605,7 @@ float TrackAnalyzer::getInvariantMass(const VZero & vZero, float m1, float m2)
 }
 
 /*****************************************************************************/
-float TrackAnalyzer::getInvariantMass
+float QCDTrackAnalyzer::getInvariantMass
   (const reco::Track * r1,
    const reco::Track * r2,
    float m1, float m2)
@@ -625,13 +625,13 @@ float TrackAnalyzer::getInvariantMass
 
 
 /*****************************************************************************/
-double TrackAnalyzer::getSigmaOfLogdEdx(double logde)
+double QCDTrackAnalyzer::getSigmaOfLogdEdx(double logde)
 {
   return 0.3;
 }
 
 /****************************************************************************/
-double TrackAnalyzer::truncate(double m)
+double QCDTrackAnalyzer::truncate(double m)
 {
   const double s = 0.346;
   const double t = (ch == 0 ? 3.05 : 2.86);
@@ -640,7 +640,7 @@ double TrackAnalyzer::truncate(double m)
 }
 
 /****************************************************************************/
-double TrackAnalyzer::getLogdEdx(double bg)
+double QCDTrackAnalyzer::getLogdEdx(double bg)
 {
   const double a =  3.25 ;
   const double b =  0.288;
@@ -654,7 +654,7 @@ double TrackAnalyzer::getLogdEdx(double bg)
 }
 
 /****************************************************************************/
-bool TrackAnalyzer::isCompatibleWithdEdx(double m, const reco::TrackRef & track)
+bool QCDTrackAnalyzer::isCompatibleWithdEdx(double m, const reco::TrackRef & track)
 {  
   ch = (track->charge() > 0 ? 0 : 1);
    
@@ -678,7 +678,7 @@ bool TrackAnalyzer::isCompatibleWithdEdx(double m, const reco::TrackRef & track)
 }
 
 /*****************************************************************************/
-void TrackAnalyzer::processVZeros()
+void QCDTrackAnalyzer::processVZeros()
 {
   const float mel = 0.511e-3;
   const float mpi = 0.13957018;
@@ -732,7 +732,7 @@ void TrackAnalyzer::processVZeros()
 }
 
 /*****************************************************************************/
-int TrackAnalyzer::processRecTracks
+int QCDTrackAnalyzer::processRecTracks
   (edm::Handle<reco::DeDxDataValueMap> elossCollection)
 {
   int ntrk = 0;
@@ -807,7 +807,7 @@ int TrackAnalyzer::processRecTracks
 }
 
 /*****************************************************************************/
-void TrackAnalyzer::analyze
+void QCDTrackAnalyzer::analyze
   (const edm::Event& ev, const edm::EventSetup& es)
 {
   LogTrace("MinBiasTracking") << "[TrackAnalyzer]";
@@ -904,4 +904,4 @@ void TrackAnalyzer::analyze
   processVZeros();
 }
 
-DEFINE_FWK_MODULE(TrackAnalyzer);
+DEFINE_FWK_MODULE(QCDTrackAnalyzer);
