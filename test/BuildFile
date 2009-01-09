@@ -20,7 +20,7 @@
  <use name=SimDataFormats/TrackingAnalysis>
  <use name=SimDataFormats/Track>
  <use name=SimDataFormats/Vertex>
- <use name=SimDataFormats/HepMCProduct>
+ <use name=SimDataFormats/GeneratorProducts>
  <use name=SimTracker/TrackAssociation>
 # Will be removed:
  <use name=RecoVertex/KalmanVertexFit>
