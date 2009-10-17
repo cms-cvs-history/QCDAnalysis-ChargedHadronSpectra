@@ -22,6 +22,7 @@
  <use name=SimDataFormats/Vertex>
  <use name=SimDataFormats/GeneratorProducts>
  <use name=SimTracker/TrackAssociation>
+ <use name=SimTracker/Records>
 # Will be removed:
  <use name=RecoVertex/KalmanVertexFit>
  <use name=DataFormats/L1GlobalCaloTrigger>
