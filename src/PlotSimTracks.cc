@@ -92,6 +92,30 @@ void PlotSimTracks::printSimTracks(const edm::Event& ev)
   edm::Handle<edm::PCaloHitContainer>      simHitsEndcap;
   ev.getByLabel("g4SimHits", "EcalHitsEE", simHitsEndcap);
 
+// FIXME
+/*
+  {
+  edm::Handle<edm::SimTrackContainer>  simTracks;
+  ev.getByType<edm::SimTrackContainer>(simTracks);
+  cerr << " SSSSS " << simTracks.product()->size() << endl;
+
+  for(edm::SimTrackContainer::const_iterator t = simTracks.product()->begin();
+                                             t!= simTracks.product()->end(); t++)
+  {
+    cerr << " simTrack " << t - simTracks.product()->begin()
+         << " " << t->type()
+         << " " << t->charge()
+         << " " << t->vertIndex()
+         << " " << t->genpartIndex()
+         << " " << t->momentum().x()
+         << " " << t->momentum().y()
+         << " " << t->momentum().z()
+         << endl;
+  } 
+
+  }
+*/
+
   const CaloSubdetectorGeometry* geom;
 
   // Utilities
@@ -191,7 +215,7 @@ void PlotSimTracks::printSimTracks(const edm::Event& ev)
         for(edm::PCaloHitContainer::const_iterator
               simHit = simHitsBarrel->begin();
               simHit!= simHitsBarrel->end(); simHit++)
-        if(simHit->geantTrackId() == simTrack->g4Track_begin()->trackId() &&
+	  if(simHit->geantTrackId() == static_cast<int>(simTrack->g4Track_begin()->trackId()) && //the sign of trackId tells whether there was a match  
            simHit->energy() > 0.060)
         {
           EBDetId detId(simHit->id());
@@ -214,7 +238,7 @@ void PlotSimTracks::printSimTracks(const edm::Event& ev)
         for(edm::PCaloHitContainer::const_iterator
               simHit = simHitsEndcap->begin();
               simHit!= simHitsEndcap->end(); simHit++)
-        if(simHit->geantTrackId() == simTrack->g4Track_begin()->trackId() &&
+	  if(simHit->geantTrackId() == static_cast<int>(simTrack->g4Track_begin()->trackId()) && //the sign of trackId tells whether there was a match
            simHit->energy() > 0.060)
         {
           EEDetId detId(simHit->id());
